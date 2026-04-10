@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuickQ — Smart Queue System</title>
+  <link rel="stylesheet" href="style.css" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap"
+    rel="stylesheet" />
+</head>
+
+<body class="user-page">
+
+  <!-- Background Grid -->
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="logo">Quick<span>Q</span></div>
+    <nav>
+      <a href="index.html" class="active">Join Queue</a>
+      <a href="admin.html">Admin Panel</a>
+    </nav>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-badge">🤖 AI-Powered Queue</div>
+    <h1>Skip the Wait.<br /><span class="accent">Not the Line.</span></h1>
+    <p class="hero-sub">Join queues from your phone. Get notified when it's your turn. Zero crowd. Zero stress.</p>
+  </section>
+
+  <!-- Join Queue Card -->
+  <section class="join-section">
+    <div class="card join-card">
+      <div class="card-header">
+        <span class="card-icon">📱</span>
+        <div>
+          <h2>Join Queue</h2>
+          <p>Enter your details to get in line</p>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Your Name</label>
+        <input type="text" id="userName" placeholder="e.g. FName LName" />
+      </div>
+      <div class="form-group">
+        <label>Mobile Number</label>
+        <input type="tel" id="userPhone" placeholder="+91 9876543210" />
+      </div>
+      <div class="form-group">
+        <label>Service Type</label>
+        <select id="serviceType">
+          <option value="general">General</option>
+          <option value="consultation">Consultation</option>
+          <option value="billing">Billing</option>
+          <option value="emergency">🚨 Emergency</option>
+        </select>
+      </div>
+
+      <button class="btn-primary" onclick="joinQueue()">
+        <span>Join Queue Now</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 12h14M12 5l7 7-7 7" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Queue Status -->
+    <div class="card status-card" id="statusCard" style="display:none">
+      <div class="status-header">
+        <span class="status-dot pulsing"></span>
+        <span>Live Queue Status</span>
+      </div>
+
+      <div class="position-display">
+        <div class="position-label">YOUR POSITION</div>
+        <div class="position-number" id="positionNumber">—</div>
+        <div class="position-sub">in line</div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-label">⏱ Est. Wait</div>
+          <div class="stat-value" id="waitTime">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">👥 Total</div>
+          <div class="stat-value" id="totalQueue">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">🔢 Token</div>
+          <div class="stat-value" id="tokenNum">—</div>
+        </div>
+      </div>
+
+      <div class="ai-insight" id="aiInsight">
+        <span class="ai-badge">🤖 AI</span>
+        <span id="aiMessage">Calculating smart estimate...</span>
+      </div>
+
+      <button class="btn-danger" onclick="leaveQueue()">Leave Queue</button>
+    </div>
+  </section>
+
+  <!-- Live Queue Board -->
+  <section class="queue-board-section">
+    <div class="section-title">
+      <h3>Live Queue Board</h3>
+      <span class="refresh-tag" onclick="loadQueueBoard()">↻ Refresh</span>
+    </div>
+    <div class="queue-board" id="queueBoard">
+      <div class="empty-state">Loading queue...</div>
+    </div>
+  </section>
+
+  <!-- Notification Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
