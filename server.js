@@ -18,9 +18,9 @@ app.use(express.static('.'));  // Serve frontend files
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/quickq';
 
 mongoose.connect(mongodb+srv://aditikudekar14_db:<db_password>@cluster0.l4yimaf.mongodb.net/?appName=Cluster0)
-  .then(() => console.log('✅ MongoDB connected:', MONGO_URI))
+  .then(() => console.log(' MongoDB connected:', MONGO_URI))
   .catch(err => {
-    console.error('❌ MongoDB connection failed:', err.message);
+    console.error(' MongoDB connection failed:', err.message);
     process.exit(1);
   });
 
