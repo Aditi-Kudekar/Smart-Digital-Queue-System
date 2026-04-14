@@ -1,1 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QuickQ — Admin Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+</head>
+<body class="admin-page">
 
+  <div class="bg-grid"></div>
+  <div class="bg-glow admin-glow"></div>
+
+  <header>
+    <div class="logo">Quick<span>Q</span> <span class="admin-tag">ADMIN</span></div>
+    <nav>
+      <a href="index.html">User View</a>
+      <a href="admin.html" class="active">Dashboard</a>
+    </nav>
+  </header>
+
+  <!-- Admin Hero -->
+  <section class="admin-hero">
+    <h1>Queue <span class="accent">Dashboard</span></h1>
+    <p>Manage your queue, call next users, and view AI analytics in real-time</p>
+  </section>
+
+  <!-- Stats Row -->
+  <section class="admin-stats">
+    <div class="stat-card">
+      <div class="stat-icon">👥</div>
+      <div class="stat-info">
+        <div class="stat-big" id="statTotal">0</div>
+        <div class="stat-lbl">In Queue</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">✅</div>
+      <div class="stat-info">
+        <div class="stat-big" id="statServed">0</div>
+        <div class="stat-lbl">Served Today</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">⏱</div>
+      <div class="stat-info">
+        <div class="stat-big" id="statAvg">0m</div>
+        <div class="stat-lbl">Avg. Wait</div>
+      </div>
+    </div>
+    <div class="stat-card ai-stat">
+      <div class="stat-icon">🤖</div>
+      <div class="stat-info">
+        <div class="stat-big" id="statPeak">—</div>
+        <div class="stat-lbl">AI Peak Hour</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Admin Panel -->
+  <section class="admin-main">
+
+    <!-- Queue List -->
+    <div class="card admin-queue-card">
+      <div class="admin-card-header">
+        <h3>🧑‍🤝‍🧑 Current Queue</h3>
+        <div class="admin-controls">
+          <button class="btn-next" onclick="callNext()">
+            📢 Call Next
+          </button>
+          <button class="btn-clear" onclick="clearQueue()">🗑 Clear All</button>
+        </div>
+      </div>
+
+      <div class="now-serving" id="nowServing" style="display:none">
+        <div class="ns-label">NOW SERVING</div>
+        <div class="ns-name" id="nsName">—</div>
+        <div class="ns-token" id="nsToken">Token #—</div>
+      </div>
+
+      <div class="queue-list" id="adminQueueList">
+        <div class="empty-state">No users in queue</div>
+      </div>
+    </div>
+
+    <!-- AI Panel -->
+    <div class="ai-panel">
+      <div class="card ai-card">
+        <h3>🤖 AI Insights</h3>
+        <div class="ai-items" id="aiInsights">
+          <div class="ai-item">
+            <span class="ai-dot"></span>
+            <span>Calculating crowd patterns...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- QR Code -->
+      <div class="card qr-card">
+        <h3>📷 QR Code Entry</h3>
+        <div class="qr-display" id="qrDisplay">
+          <div class="qr-placeholder">
+            <div class="qr-corners"></div>
+            <span>QR</span>
+          </div>
+        </div>
+        <p class="qr-sub">Share this QR for instant queue join</p>
+        <button class="btn-outline" onclick="generateQR()">Generate QR</button>
+      </div>
+
+      <!-- Analytics Chart -->
+      <div class="card analytics-card">
+        <h3>📊 Today's Activity</h3>
+        <div class="chart-area" id="chartArea">
+          <canvas id="activityChart" width="300" height="150"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <div class="toast" id="toast"></div>
+  <!-- <script src="script.js"></script> -->
+  <script src="admin.js"></script>
+</body>
+</html>
