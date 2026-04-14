@@ -1,55 +1,595 @@
-<script src="admin.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuickQ — Admin Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-<script>
-(async function () {
-
-  async function validate(password) {
-    try {
-      const res = await fetch('/admin/validate', {
-        headers: { 'x-admin-token': password }
-      });
-      return res.status === 200;
-    } catch {
-      return false;
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --surface2: #1c1c28;
+      --border: #2a2a3a;
+      --accent: #7c3aed;
+      --accent2: #a855f7;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #eab308;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --radius: 14px;
     }
-  }
 
-  let token = localStorage.getItem('adminToken');
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
 
-  // Auto login if already saved
-  if (token) {
-    const ok = await validate(token);
-    if (ok) {
-      document.body.style.display = 'block';
-      document.getElementById('adminApp').style.display = 'block';
-      loadApp();
-      return;
-    } else {
+    /* ── LOGIN OVERLAY ── */
+    #loginOverlay {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+
+    .login-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 0 60px rgba(124,58,237,0.15);
+      animation: slideUp 0.4s ease;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .login-logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.2rem;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+    }
+    .login-logo span { color: var(--accent2); }
+    .login-sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 32px; }
+
+    .login-field {
+      margin-bottom: 18px;
+    }
+    .login-field label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .login-field input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 13px 16px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .login-field input:focus { border-color: var(--accent2); }
+    .login-field input::placeholder { color: var(--muted); }
+
+    .login-error {
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 8px;
+      color: #fca5a5;
+      font-size: 0.85rem;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .login-error.show { display: block; }
+
+    .btn-login {
+      width: 100%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 14px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      margin-top: 4px;
+    }
+    .btn-login:hover { opacity: 0.9; }
+    .btn-login:active { transform: scale(0.98); }
+    .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── ADMIN APP ── */
+    #adminApp { display: none; }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 40px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .logo { font-family: 'Bebas Neue'; font-size: 1.8rem; letter-spacing: 2px; }
+    .logo span { color: var(--accent2); }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .admin-badge {
+      background: rgba(124,58,237,0.2);
+      border: 1px solid rgba(168,85,247,0.4);
+      color: var(--accent2);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .btn-logout {
+      background: rgba(239,68,68,0.15);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #fca5a5;
+      border-radius: 8px;
+      padding: 7px 16px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-logout:hover { background: rgba(239,68,68,0.25); }
+
+    /* Main layout */
+    .admin-main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    .page-title { font-family: 'Bebas Neue'; font-size: 2.4rem; letter-spacing: 2px; margin-bottom: 4px; }
+    .page-sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 36px; }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 36px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; }
+    .stat-num { font-family: 'JetBrains Mono'; font-size: 2rem; font-weight: 700; color: var(--accent2); }
+    .stat-desc { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+
+    /* Action buttons */
+    .actions { display: flex; gap: 14px; margin-bottom: 32px; flex-wrap: wrap; }
+
+    .btn-call {
+      background: linear-gradient(135deg, var(--green), #16a34a);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 28px;
+      font-family: 'DM Sans'; font-size: 1rem; font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .btn-call:hover { opacity: 0.9; }
+    .btn-call:active { transform: scale(0.97); }
+
+    .btn-clear {
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.35);
+      color: #fca5a5;
+      border-radius: 10px;
+      padding: 13px 28px;
+      font-family: 'DM Sans'; font-size: 1rem; font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .btn-clear:hover { background: rgba(239,68,68,0.22); }
+
+    .btn-refresh {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 13px 22px;
+      font-family: 'DM Sans'; font-size: 1rem; font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .btn-refresh:hover { border-color: var(--accent2); }
+
+    /* Queue table */
+    .queue-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .queue-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .queue-section-title { font-weight: 600; font-size: 1rem; }
+    .live-dot {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.75rem; color: var(--green);
+    }
+    .live-dot::before {
+      content: '';
+      width: 7px; height: 7px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .queue-list { padding: 8px 0; min-height: 100px; }
+
+    .queue-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      transition: background 0.15s;
+    }
+    .queue-row:last-child { border-bottom: none; }
+    .queue-row:hover { background: rgba(255,255,255,0.03); }
+    .queue-row.first { background: rgba(34,197,94,0.07); border-left: 3px solid var(--green); }
+    .queue-row.emergency { background: rgba(239,68,68,0.07); border-left: 3px solid var(--red); }
+
+    .q-pos {
+      font-family: 'JetBrains Mono'; font-size: 0.85rem; color: var(--muted);
+      width: 28px; text-align: center;
+    }
+    .q-token {
+      font-family: 'JetBrains Mono'; font-size: 0.8rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 8px;
+      color: var(--accent2);
+      min-width: 60px; text-align: center;
+    }
+    .q-name { font-weight: 500; flex: 1; }
+    .q-phone { font-family: 'JetBrains Mono'; font-size: 0.82rem; color: var(--muted); }
+    .q-service {
+      font-size: 0.78rem; font-weight: 600;
+      padding: 4px 10px; border-radius: 20px;
+      background: var(--surface2);
+    }
+    .q-time { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
+
+    .empty-queue {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--muted);
+    }
+    .empty-queue .emoji { font-size: 2.5rem; margin-bottom: 12px; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(100px);
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); padding: 13px 24px;
+      border-radius: 10px; font-size: 0.9rem; font-weight: 500;
+      transition: transform 0.35s cubic-bezier(.34,1.56,.64,1);
+      z-index: 1000; white-space: nowrap;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: var(--green); color: #86efac; }
+    .toast.error { border-color: var(--red); color: #fca5a5; }
+  </style>
+</head>
+<body>
+
+  <!-- ── LOGIN OVERLAY ── -->
+  <div id="loginOverlay">
+    <div class="login-box">
+      <div class="login-logo">Quick<span>Q</span></div>
+      <p class="login-sub">Admin Panel — Restricted Access</p>
+
+      <div id="loginError" class="login-error">❌ Invalid username or password.</div>
+
+      <div class="login-field">
+        <label>Username</label>
+        <input type="text" id="loginUsername" placeholder="admin" autocomplete="username" />
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+
+      <button class="btn-login" id="loginBtn" onclick="doLogin()">Login to Dashboard →</button>
+    </div>
+  </div>
+
+  <!-- ── ADMIN APP ── -->
+  <div id="adminApp">
+    <header>
+      <div class="logo">Quick<span>Q</span></div>
+      <div class="header-right">
+        <span class="admin-badge">⚡ Admin</span>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+      </div>
+    </header>
+
+    <div class="admin-main">
+      <div class="page-title">Queue Dashboard</div>
+      <p class="page-sub">Manage live queue in real-time</p>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">👥 Waiting</div>
+          <div class="stat-num" id="statWaiting">—</div>
+          <div class="stat-desc">People in queue</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">🔴 Emergency</div>
+          <div class="stat-num" id="statEmergency">—</div>
+          <div class="stat-desc">Priority cases</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">⏱ Avg Wait</div>
+          <div class="stat-num" id="statAvgWait">—</div>
+          <div class="stat-desc">Minutes estimated</div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button class="btn-call" onclick="callNext()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          Call Next Person
+        </button>
+        <button class="btn-clear" onclick="confirmClear()">
+          🗑 Clear Queue
+        </button>
+        <button class="btn-refresh" onclick="loadAdminQueue()">↻ Refresh</button>
+      </div>
+
+      <!-- Queue Table -->
+      <div class="queue-section">
+        <div class="queue-section-header">
+          <span class="queue-section-title">Live Queue</span>
+          <span class="live-dot">Auto-refresh on</span>
+        </div>
+        <div class="queue-list" id="adminQueueList">
+          <div class="empty-queue"><div class="emoji">⏳</div>Loading...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const API = '';
+
+    // ── TOAST ──
+    function showToast(msg, type = '') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = `toast show ${type}`;
+      setTimeout(() => t.className = 'toast', 3500);
+    }
+
+    // ── LOGIN ──
+    async function doLogin() {
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value.trim();
+      const btn = document.getElementById('loginBtn');
+      const err = document.getElementById('loginError');
+
+      if (!username || !password) {
+        err.textContent = '⚠️ Please enter both username and password.';
+        err.classList.add('show');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Verifying...';
+      err.classList.remove('show');
+
+      // We use password as the admin token (validated server-side)
+      // Username is checked client-side as an extra gate
+      const ADMIN_USERNAME = 'admin'; // Change this to your desired username
+
+      if (username !== ADMIN_USERNAME) {
+        err.textContent = '❌ Invalid username or password.';
+        err.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = 'Login to Dashboard →';
+        return;
+      }
+
+      try {
+        const res = await fetch('/admin/validate', {
+          headers: { 'x-admin-token': password }
+        });
+
+        if (res.status === 200) {
+          localStorage.setItem('adminToken', password);
+          document.getElementById('loginOverlay').style.display = 'none';
+          document.getElementById('adminApp').style.display = 'block';
+          loadAdminQueue();
+          startAutoRefresh();
+          showToast('✅ Welcome to Admin Dashboard!', 'success');
+        } else {
+          err.textContent = '❌ Invalid username or password.';
+          err.classList.add('show');
+        }
+      } catch {
+        err.textContent = '⚠️ Cannot connect to server.';
+        err.classList.add('show');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Login to Dashboard →';
+    }
+
+    // Allow Enter key to submit
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && document.getElementById('loginOverlay').style.display !== 'none') {
+        doLogin();
+      }
+    });
+
+    // ── LOGOUT ──
+    function logout() {
       localStorage.removeItem('adminToken');
+      document.getElementById('adminApp').style.display = 'none';
+      document.getElementById('loginOverlay').style.display = 'flex';
+      document.getElementById('loginPassword').value = '';
+      document.getElementById('loginUsername').value = '';
     }
-  }
 
-  // Ask password
-  const entered = prompt('🔐 Enter Admin Password:');
+    // ── ADMIN FETCH ──
+    async function adminFetch(path, options = {}) {
+      return fetch(API + path, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': localStorage.getItem('adminToken') || '',
+          ...(options.headers || {}),
+        },
+      });
+    }
 
-  if (!entered) {
-    document.body.innerHTML = '<h1 style="text-align:center;margin-top:100px;color:red;">🚫 Access Denied</h1>';
-    return;
-  }
+    // ── LOAD QUEUE ──
+    async function loadAdminQueue() {
+      try {
+        const res = await adminFetch('/queue');
+        if (res.status === 401) { logout(); return; }
+        const data = await res.json();
+        const list = document.getElementById('adminQueueList');
+        const queue = data.queue || [];
 
-  const ok = await validate(entered);
+        // Update stats
+        const emergencyCount = queue.filter(u => u.service === 'emergency').length;
+        document.getElementById('statWaiting').textContent = queue.length;
+        document.getElementById('statEmergency').textContent = emergencyCount;
+        document.getElementById('statAvgWait').textContent = queue.length ? `~${queue.length * 5}m` : '0m';
 
-  if (!ok) {
-    alert('❌ Wrong Password!');
-    document.body.innerHTML = '<h1 style="text-align:center;margin-top:100px;color:red;">🚫 Access Denied</h1>';
-    return;
-  }
+        if (queue.length === 0) {
+          list.innerHTML = `<div class="empty-queue"><div class="emoji">🎉</div>Queue is empty — no one waiting!</div>`;
+          return;
+        }
 
-  // Save and show
-  localStorage.setItem('adminToken', entered);
-  document.body.style.display = 'block';
-  document.getElementById('adminApp').style.display = 'block';
-  loadApp();
+        list.innerHTML = queue.map((user, i) => {
+          const isFirst = i === 0;
+          const isEmergency = user.service === 'emergency';
+          const cls = isEmergency ? 'emergency' : (isFirst ? 'first' : '');
+          const joined = new Date(user.joinedAt);
+          const timeStr = joined.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const serviceMap = {
+            general: '⚪ General', consultation: '🔵 Consult',
+            billing: '🟣 Billing', emergency: '🔴 Emergency'
+          };
 
-})();
-</script>
+          return `
+            <div class="queue-row ${cls}">
+              <span class="q-pos">${i + 1}</span>
+              <span class="q-token">#${user.token}</span>
+              <span class="q-name">${isFirst ? '👉 ' : ''}${user.name}</span>
+              <span class="q-phone">${user.phone}</span>
+              <span class="q-service">${serviceMap[user.service] || user.service}</span>
+              <span class="q-time">Joined ${timeStr}</span>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        document.getElementById('adminQueueList').innerHTML =
+          `<div class="empty-queue"><div class="emoji">⚠️</div>Server offline or error loading queue.</div>`;
+      }
+    }
+
+    // ── CALL NEXT ──
+    async function callNext() {
+      try {
+        const res = await adminFetch('/queue/next', { method: 'POST' });
+        if (res.status === 404) { showToast('⚠️ Queue is already empty.', 'error'); return; }
+        const data = await res.json();
+        showToast(`✅ Called: ${data.user?.name || 'Next person'}`, 'success');
+        loadAdminQueue();
+      } catch {
+        showToast('❌ Failed to call next.', 'error');
+      }
+    }
+
+    // ── CLEAR QUEUE ──
+    function confirmClear() {
+      if (!confirm('⚠️ Are you sure you want to clear the entire queue? This cannot be undone.')) return;
+      adminFetch('/queue/clear', { method: 'POST' })
+        .then(() => { showToast('🗑 Queue cleared.', ''); loadAdminQueue(); })
+        .catch(() => showToast('❌ Failed to clear.', 'error'));
+    }
+
+    // ── AUTO REFRESH ──
+    let refreshInterval;
+    function startAutoRefresh() {
+      clearInterval(refreshInterval);
+      refreshInterval = setInterval(loadAdminQueue, 5000);
+    }
+
+    // ── AUTO LOGIN IF TOKEN SAVED ──
+    (async function () {
+      const token = localStorage.getItem('adminToken');
+      if (!token) return;
+      try {
+        const res = await fetch('/admin/validate', {
+          headers: { 'x-admin-token': token }
+        });
+        if (res.status === 200) {
+          document.getElementById('loginOverlay').style.display = 'none';
+          document.getElementById('adminApp').style.display = 'block';
+          loadAdminQueue();
+          startAutoRefresh();
+        } else {
+          localStorage.removeItem('adminToken');
+        }
+      } catch {}
+    })();
+  </script>
+</body>
+</html>
