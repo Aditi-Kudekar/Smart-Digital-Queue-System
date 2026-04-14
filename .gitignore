@@ -1,0 +1,24 @@
+# Environment variables (VERY IMPORTANT)
+.env
+
+# Node modules (large folder)
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files (optional but good)
+.vscode/
+.idea/
+
+# Temporary files
+temp/
+tmp/
