@@ -1,5 +1,5 @@
 // ============================
-// admin.js — QuickQ Admin (FIXED FINAL)
+// admin.js — QuickQ Admin (FINAL FIXED)
 // ============================
 
 const API = '';
@@ -8,12 +8,10 @@ const API = '';
 // 🔐 AUTH SECTION
 // ============================
 
-// Get token
 function getAdminToken() {
   return localStorage.getItem('adminToken') || '';
 }
 
-// Admin fetch (adds token automatically)
 async function adminFetch(path, options = {}) {
   return fetch(API + path, {
     ...options,
@@ -25,35 +23,50 @@ async function adminFetch(path, options = {}) {
   });
 }
 
-// ✅ FIXED: returns TRUE/FALSE
+// ✅ Proper login check (NO UI LOAD BEFORE AUTH)
 async function checkAdminLogin() {
   let token = getAdminToken();
 
-  // Already logged in
-  if (token) return true;
+  // If no token → ask password
+  if (!token) {
+    const entered = prompt('Enter admin password:');
 
-  const entered = prompt('Enter admin password:');
-
-  // ❌ Cancel or empty
-  if (!entered) {
-    blockAccess();
-    return false;
-  }
-
-  try {
-    const res = await fetch('/queue', {
-      headers: { 'x-admin-token': entered }
-    });
-
-    // ❌ Wrong password
-    if (res.status === 401) {
-      alert('❌ Wrong password!');
+    if (!entered) {
       blockAccess();
       return false;
     }
 
-    // ✅ Correct password
-    localStorage.setItem('adminToken', entered);
+    try {
+      const res = await fetch('/queue', {
+        headers: { 'x-admin-token': entered }
+      });
+
+      if (res.status === 401) {
+        alert('❌ Wrong password!');
+        blockAccess();
+        return false;
+      }
+
+      localStorage.setItem('adminToken', entered);
+      return true;
+
+    } catch (err) {
+      blockAccess();
+      return false;
+    }
+  }
+
+  // If token exists → verify it
+  try {
+    const res = await fetch('/queue', {
+      headers: { 'x-admin-token': token }
+    });
+
+    if (res.status === 401) {
+      localStorage.removeItem('adminToken');
+      return checkAdminLogin(); // ask again
+    }
+
     return true;
 
   } catch (err) {
@@ -62,7 +75,7 @@ async function checkAdminLogin() {
   }
 }
 
-// Block access
+// ❌ Block UI completely
 function blockAccess() {
   document.body.innerHTML = `
     <div style="text-align:center; margin-top:100px;">
@@ -96,12 +109,9 @@ function showToast(msg, type = '') {
 
 async function loadAdminQueue() {
   try {
-    const res  = await adminFetch('/queue');
+    const res = await adminFetch('/queue');
 
-    if (res.status === 401) {
-      blockAccess();
-      return;
-    }
+    if (res.status === 401) return blockAccess();
 
     const data = await res.json();
 
@@ -119,8 +129,8 @@ async function loadAdminQueue() {
 
     list.innerHTML = data.queue.map((user, i) => {
       const isPriority = user.service === 'emergency';
-      const joinedAt   = new Date(user.joinedAt);
-      const waitMins   = Math.floor((Date.now() - joinedAt) / 60000);
+      const joinedAt = new Date(user.joinedAt);
+      const waitMins = Math.floor((Date.now() - joinedAt) / 60000);
 
       return `
         <div class="admin-queue-item ${isPriority ? 'priority-item' : ''}">
@@ -129,7 +139,9 @@ async function loadAdminQueue() {
             <div class="aqi-name">${user.name}</div>
             <div class="aqi-meta">📱 ${user.phone} · Waited ${waitMins}m</div>
           </div>
-          <span class="aqi-badge badge-${user.service}">${serviceLabel(user.service)}</span>
+          <span class="aqi-badge badge-${user.service}">
+            ${serviceLabel(user.service)}
+          </span>
         </div>
       `;
     }).join('');
@@ -137,7 +149,7 @@ async function loadAdminQueue() {
     updateStats(data.queue);
     updateAIInsights(data.queue.length);
 
-  } catch (_) {
+  } catch (err) {
     showToast('❌ Error loading queue', 'error');
   }
 }
@@ -148,12 +160,9 @@ async function loadAdminQueue() {
 
 async function loadAnalytics() {
   try {
-    const res  = await adminFetch('/analytics');
+    const res = await adminFetch('/analytics');
 
-    if (res.status === 401) {
-      blockAccess();
-      return;
-    }
+    if (res.status === 401) return blockAccess();
 
     const data = await res.json();
 
@@ -167,7 +176,7 @@ async function loadAnalytics() {
       drawChart(data.hourly);
     }
 
-  } catch (_) {}
+  } catch (err) {}
 }
 
 // ============================
@@ -176,29 +185,31 @@ async function loadAnalytics() {
 
 async function callNext() {
   try {
-    const res  = await adminFetch('/queue/next', { method: 'POST' });
+    const res = await adminFetch('/queue/next', { method: 'POST' });
     const data = await res.json();
 
-    if (res.status === 401) {
-      blockAccess();
-      return;
-    }
+    if (res.status === 401) return blockAccess();
 
     if (res.ok && data.user) {
       const banner = document.getElementById('nowServing');
       banner.style.display = 'block';
-      document.getElementById('nsName').textContent  = data.user.name;
+
+      document.getElementById('nsName').textContent = data.user.name;
       document.getElementById('nsToken').textContent =
         `Token #${data.user.token} · ${serviceLabel(data.user.service)}`;
 
       showToast(`📢 Calling: ${data.user.name}`, 'success');
-      setTimeout(() => { loadAdminQueue(); loadAnalytics(); }, 400);
+
+      setTimeout(() => {
+        loadAdminQueue();
+        loadAnalytics();
+      }, 400);
 
     } else {
       showToast('Queue is empty!', 'error');
     }
 
-  } catch (_) {
+  } catch (err) {
     showToast('❌ Server not reachable.', 'error');
   }
 }
@@ -209,39 +220,40 @@ async function clearQueue() {
   try {
     const res = await adminFetch('/queue/clear', { method: 'POST' });
 
-    if (res.status === 401) {
-      blockAccess();
-      return;
-    }
+    if (res.status === 401) return blockAccess();
 
     document.getElementById('nowServing').style.display = 'none';
     showToast('🗑 Queue cleared.');
+
     loadAdminQueue();
 
-  } catch (_) {
+  } catch (err) {
     showToast('❌ Server error', 'error');
   }
 }
 
 // ============================
-
+// 📷 QR
+// ============================
 
 function generateQR() {
   const url = encodeURIComponent(window.location.origin + '/');
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${url}`;
+
   document.getElementById('qrDisplay').innerHTML =
     `<img src="${qrUrl}" width="120">`;
 }
 
 // ============================
 // 📊 STATS + AI
-
+// ============================
 
 function updateStats(queue) {
   const totalWait = queue.reduce((sum, u) =>
     sum + Math.floor((Date.now() - new Date(u.joinedAt)) / 60000), 0);
 
   const avg = queue.length ? Math.floor(totalWait / queue.length) : 0;
+
   document.getElementById('statAvg').textContent = `${avg}m`;
 }
 
@@ -258,6 +270,7 @@ function updateAIInsights(queueLen) {
 
 // ============================
 // 📊 CHART
+// ============================
 
 function drawChart(hourly) {
   const canvas = document.getElementById('activityChart');
@@ -269,6 +282,7 @@ function drawChart(hourly) {
 
 // ============================
 // 🔧 HELPERS
+// ============================
 
 function serviceLabel(s) {
   return {
@@ -278,23 +292,28 @@ function serviceLabel(s) {
     emergency: 'Emergency'
   }[s] || s;
 }
+
+// ============================
+// 🚀 INIT (CRITICAL FIX)
 // ============================
 
 window.addEventListener('load', async () => {
-  const isAllowed = await checkAdminLogin();
 
-  // ❌ STOP if wrong password
-  if (!isAllowed) return;
+  // Hide UI first
+  document.body.style.display = 'none';
 
-  // ✅ Only run if correct
+  const ok = await checkAdminLogin();
+
+  if (!ok) return; // STOP if not authorized
+
+  // Show UI only after success
+  document.body.style.display = 'block';
+
   loadAdminQueue();
   loadAnalytics();
-});
 
-// Auto refresh
-setInterval(() => {
-  if (getAdminToken()) {
+  setInterval(() => {
     loadAdminQueue();
     loadAnalytics();
-  }
-}, 5000);
+  }, 5000);
+});
