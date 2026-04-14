@@ -2,54 +2,77 @@
 // server.js — QuickQ Backend
 // ============================
 
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const crypto = require('crypto');
 
 const app = express();
-app.use(cors());
+
+// ============================
+// 1. MIDDLEWARE
+// ============================
+const allowedOrigin = process.env.FRONTEND_ORIGIN || '*';
+app.use(cors({ origin: allowedOrigin }));
 app.use(express.json());
 app.use(express.static('.'));  // Serve frontend files
 
 // ============================
-// 1. MONGODB CONNECTION
+// 2. MONGODB CONNECTION
 // ============================
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/quickq';
+const MONGO_URI = process.env.MONGO_URI;
 
-mongoose.connect(mongodb+srv://aditikudekar14_db:<db_password>@cluster0.l4yimaf.mongodb.net/?appName=Cluster0)
-  .then(() => console.log(' MongoDB connected:', MONGO_URI))
+if (!MONGO_URI) {
+  console.error('❌ MONGO_URI not set in .env file');
+  process.exit(1);
+}
+
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('✅ MongoDB connected'))
   .catch(err => {
-    console.error(' MongoDB connection failed:', err.message);
+    console.error('❌ MongoDB connection failed:', err.message);
     process.exit(1);
   });
 
 // ============================
-// 2. SCHEMA & MODEL
+// 3. SCHEMA & MODEL
 // ============================
 const queueSchema = new mongoose.Schema({
-  token: { type: String, required: true, unique: true },
-  name: { type: String, required: true },
-  phone: { type: String, required: true },
-  service: { type: String, default: 'general' },
-  status: { type: String, default: 'waiting' }, // waiting | serving | done
+  token:    { type: String, required: true, unique: true },
+  name:     { type: String, required: true, maxlength: 80 },
+  phone:    { type: String, required: true, maxlength: 20 },
+  service:  { type: String, default: 'general', enum: ['general', 'consultation', 'billing', 'emergency'] },
+  status:   { type: String, default: 'waiting' }, // waiting | done
   joinedAt: { type: Date, default: Date.now },
   servedAt: { type: Date },
 });
 
 const servedSchema = new mongoose.Schema({
-  name: String,
-  phone: String,
-  service: String,
-  token: String,
-  servedAt: { type: Date, default: Date.now },
+  name:       String,
+  phone:      String,
+  service:    String,
+  token:      String,
+  joinedAt:   Date,
+  servedAt:   { type: Date, default: Date.now },
 });
 
-const Queue = mongoose.model('Queue', queueSchema);
+const Queue  = mongoose.model('Queue', queueSchema);
 const Served = mongoose.model('Served', servedSchema);
 
 // ============================
-// 3. ROUTES
+// 4. ADMIN AUTH MIDDLEWARE
+// ============================
+function adminAuth(req, res, next) {
+  const token = req.headers['x-admin-token'];
+  if (token !== process.env.ADMIN_TOKEN) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}
+
+// ============================
+// 5. ROUTES
 // ============================
 
 // GET /queue — fetch all waiting users
@@ -64,33 +87,31 @@ app.get('/queue', async (req, res) => {
 
 // POST /queue/join — user joins queue
 app.post('/queue/join', async (req, res) => {
-  const { name, phone, service } = req.body;
+  let { name, phone, service } = req.body;
+
   if (!name || !phone) return res.status(400).json({ error: 'Name and phone required.' });
+
+  // Sanitize
+  name  = String(name).trim().slice(0, 80);
+  phone = String(phone).trim().replace(/\s/g, '').slice(0, 20);
+  service = ['general','consultation','billing','emergency'].includes(service) ? service : 'general';
 
   // Prevent duplicate join
   const existing = await Queue.findOne({ phone, status: 'waiting' });
   if (existing) {
-    const position = await Queue.countDocuments({
-      status: 'waiting',
-      joinedAt: { $lte: existing.joinedAt }
-    });
-    const total = await Queue.countDocuments({ status: 'waiting' });
+    const position = await Queue.countDocuments({ status: 'waiting', joinedAt: { $lte: existing.joinedAt } });
+    const total    = await Queue.countDocuments({ status: 'waiting' });
     return res.json({ token: existing.token, position, total, message: 'Already in queue' });
   }
 
-  const token = crypto.randomBytes(3).toString('hex').toUpperCase(); // e.g. A3F9C2
-
-  // Priority: emergency goes to front (earlier joinedAt)
+  const token    = crypto.randomBytes(3).toString('hex').toUpperCase();
   const joinedAt = service === 'emergency' ? new Date(Date.now() - 9999999) : new Date();
 
   const user = new Queue({ token, name, phone, service, joinedAt });
   await user.save();
 
-  const total = await Queue.countDocuments({ status: 'waiting' });
-  const position = await Queue.countDocuments({
-    status: 'waiting',
-    joinedAt: { $lte: joinedAt }
-  });
+  const total    = await Queue.countDocuments({ status: 'waiting' });
+  const position = await Queue.countDocuments({ status: 'waiting', joinedAt: { $lte: joinedAt } });
 
   res.json({ token, position, total });
 });
@@ -101,11 +122,8 @@ app.get('/queue/status/:token', async (req, res) => {
     const user = await Queue.findOne({ token: req.params.token, status: 'waiting' });
     if (!user) return res.json({ removed: true });
 
-    const position = await Queue.countDocuments({
-      status: 'waiting',
-      joinedAt: { $lte: user.joinedAt }
-    });
-    const total = await Queue.countDocuments({ status: 'waiting' });
+    const position = await Queue.countDocuments({ status: 'waiting', joinedAt: { $lte: user.joinedAt } });
+    const total    = await Queue.countDocuments({ status: 'waiting' });
 
     res.json({ token: user.token, position, total, name: user.name, service: user.service });
   } catch (err) {
@@ -113,22 +131,23 @@ app.get('/queue/status/:token', async (req, res) => {
   }
 });
 
-// POST /queue/next — admin calls next user
-app.post('/queue/next', async (req, res) => {
+// POST /queue/next — admin calls next user (protected)
+app.post('/queue/next', adminAuth, async (req, res) => {
   try {
     const next = await Queue.findOne({ status: 'waiting' }).sort({ joinedAt: 1 });
     if (!next) return res.status(404).json({ error: 'Queue is empty' });
 
-    next.status = 'done';
+    next.status   = 'done';
     next.servedAt = new Date();
     await next.save();
 
-    // Save to Served history
     await Served.create({
-      name: next.name,
-      phone: next.phone,
-      service: next.service,
-      token: next.token
+      name:     next.name,
+      phone:    next.phone,
+      service:  next.service,
+      token:    next.token,
+      joinedAt: next.joinedAt,
+      servedAt: next.servedAt,
     });
 
     res.json({ user: next });
@@ -148,8 +167,8 @@ app.post('/queue/leave', async (req, res) => {
   }
 });
 
-// POST /queue/clear — admin clears all
-app.post('/queue/clear', async (req, res) => {
+// POST /queue/clear — admin clears all (protected)
+app.post('/queue/clear', adminAuth, async (req, res) => {
   try {
     await Queue.deleteMany({ status: 'waiting' });
     res.json({ success: true });
@@ -158,27 +177,38 @@ app.post('/queue/clear', async (req, res) => {
   }
 });
 
-// GET /analytics — served history & stats
+// GET /analytics — served history, stats, and hourly breakdown
 app.get('/analytics', async (req, res) => {
   try {
-    const total = await Served.countDocuments();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const total      = await Served.countDocuments();
+    const today      = new Date(); today.setHours(0, 0, 0, 0);
     const todayCount = await Served.countDocuments({ servedAt: { $gte: today } });
-    const recent = await Served.find().sort({ servedAt: -1 }).limit(20);
-    res.json({ total, todayCount, recent });
+    const recent     = await Served.find().sort({ servedAt: -1 }).limit(20);
+
+    // Real avg service time (ms → minutes)
+    const timed = await Served.find({ joinedAt: { $exists: true }, servedAt: { $exists: true } }).lean();
+    const avgServiceMins = timed.length
+      ? Math.round(timed.reduce((s, u) => s + (u.servedAt - u.joinedAt), 0) / timed.length / 60000)
+      : null;
+
+    // Hourly breakdown for today
+    const hourly = Array(24).fill(0);
+    recent.forEach(u => {
+      if (u.servedAt >= today) hourly[new Date(u.servedAt).getHours()]++;
+    });
+
+    res.json({ total, todayCount, recent, avgServiceMins, hourly });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // ============================
-// 4. START SERVER
+// 6. START SERVER
 // ============================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`\n🚀 QuickQ Server running at http://localhost:${PORT}`);
   console.log(`📱 User Page:  http://localhost:${PORT}/index.html`);
-  console.log(`🔧 Admin Page: http://localhost:${PORT}/admin.html`);
-  console.log(`📦 MongoDB:    ${MONGO_URI}\n`);
+  console.log(`🔧 Admin Page: http://localhost:${PORT}/admin.html\n`);
 });
