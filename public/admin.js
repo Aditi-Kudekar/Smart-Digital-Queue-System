@@ -1,48 +1,8 @@
-<script>
-(async function () {
-
-  async function validate(password) {
-    try {
-      const res = await fetch('/queue', {
-        headers: { 'x-admin-token': password }
-      });
-      return res.status !== 401;
-    } catch {
-      return false;
-    }
-  }
-
-  let token = localStorage.getItem('adminToken');
-
-  if (!token) {
-    const entered = prompt('🔐 Enter Admin Password:');
-
-    if (!entered) {
-      document.body.innerHTML = '<h1 style="text-align:center;margin-top:100px;color:red;">🚫 Access Denied</h1>';
-      return;
-    }
-
-    const ok = await validate(entered);
-
-    if (!ok) {
-      alert('❌ Wrong Password!');
-      document.body.innerHTML = '<h1 style="text-align:center;margin-top:100px;color:red;">🚫 Access Denied</h1>';
-      return;
-    }
-
-    localStorage.setItem('adminToken', entered);
-  }
-
-})();
-</script>
-
-// ============================
-// admin.js — CLEAN VERSION
 // ============================
 
 const API = '';
 
-// Load app after login success
+// Load app
 function loadApp() {
   loadAdminQueue();
 
@@ -51,7 +11,7 @@ function loadApp() {
   }, 5000);
 }
 
-// Fetch helper
+// Fetch with admin token
 async function adminFetch(path, options = {}) {
   return fetch(API + path, {
     ...options,
