@@ -1,143 +1,14 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>QuickQ — Admin Dashboard</title>
-  <link rel="stylesheet" href="style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
-</head>
+<script src="admin.js"></script>
 
-<body class="admin-page" style="display:none;">
-
-  
-  <!-- 🔐 WRAP EVERYTHING INSIDE THIS -->
-  <div id="adminApp" style="display:none;">
-
-    <div class="bg-grid"></div>
-    <div class="bg-glow admin-glow"></div>
-
-    <header>
-      <div class="logo">Quick<span>Q</span> <span class="admin-tag">ADMIN</span></div>
-      <nav>
-        <a href="index.html">User View</a>
-        <a href="admin.html" class="active">Dashboard</a>
-      </nav>
-    </header>
-
-    <!-- Admin Hero -->
-    <section class="admin-hero">
-      <h1>Queue <span class="accent">Dashboard</span></h1>
-      <p>Manage your queue, call next users, and view AI analytics in real-time</p>
-    </section>
-
-    <!-- Stats Row -->
-    <section class="admin-stats">
-      <div class="stat-card">
-        <div class="stat-icon">👥</div>
-        <div class="stat-info">
-          <div class="stat-big" id="statTotal">0</div>
-          <div class="stat-lbl">In Queue</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">✅</div>
-        <div class="stat-info">
-          <div class="stat-big" id="statServed">0</div>
-          <div class="stat-lbl">Served Today</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">⏱</div>
-        <div class="stat-info">
-          <div class="stat-big" id="statAvg">0m</div>
-          <div class="stat-lbl">Avg. Wait</div>
-        </div>
-      </div>
-      <div class="stat-card ai-stat">
-        <div class="stat-icon">🤖</div>
-        <div class="stat-info">
-          <div class="stat-big" id="statPeak">—</div>
-          <div class="stat-lbl">AI Peak Hour</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Main Admin Panel -->
-    <section class="admin-main">
-
-      <!-- Queue List -->
-      <div class="card admin-queue-card">
-        <div class="admin-card-header">
-          <h3>🧑‍🤝‍🧑 Current Queue</h3>
-          <div class="admin-controls">
-            <button class="btn-next" onclick="callNext()">📢 Call Next</button>
-            <button class="btn-clear" onclick="clearQueue()">🗑 Clear All</button>
-          </div>
-        </div>
-
-        <div class="now-serving" id="nowServing" style="display:none">
-          <div class="ns-label">NOW SERVING</div>
-          <div class="ns-name" id="nsName">—</div>
-          <div class="ns-token" id="nsToken">Token #—</div>
-        </div>
-
-        <div class="queue-list" id="adminQueueList">
-          <div class="empty-state">No users in queue</div>
-        </div>
-      </div>
-
-      <!-- AI Panel -->
-      <div class="ai-panel">
-        <div class="card ai-card">
-          <h3>🤖 AI Insights</h3>
-          <div class="ai-items" id="aiInsights">
-            <div class="ai-item">
-              <span class="ai-dot"></span>
-              <span>Calculating crowd patterns...</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- QR Code -->
-        <div class="card qr-card">
-          <h3>📷 QR Code Entry</h3>
-          <div class="qr-display" id="qrDisplay"></div>
-          <p class="qr-sub">Share this QR for instant queue join</p>
-          <button class="btn-outline" onclick="generateQR()">Generate QR</button>
-        </div>
-
-        <!-- Analytics Chart -->
-        <div class="card analytics-card">
-          <h3>📊 Today's Activity</h3>
-          <canvas id="activityChart" width="300" height="150"></canvas>
-        </div>
-      </div>
-
-    </section>
-
-    <div class="toast" id="toast"></div>
-
-  </div>
-
-  <div id="blockedScreen" style="display:none; text-align:center; margin-top:120px;">
-    <h1 style="color:red;">🚫 Access Denied</h1>
-    <p>You are not authorized to view this page.</p>
-  </div>
-
-  <script src="admin.js"></script>
-
-
-  <script>
+<script>
 (async function () {
-  const API = '';
 
   async function validate(password) {
     try {
-      const res = await fetch('/queue', {
+      const res = await fetch('/admin/validate', {
         headers: { 'x-admin-token': password }
       });
-      return res.status !== 401;
+      return res.status === 200;
     } catch {
       return false;
     }
@@ -145,11 +16,10 @@
 
   let token = localStorage.getItem('adminToken');
 
-  // If already logged in → verify
   if (token) {
     const ok = await validate(token);
     if (ok) {
-      document.body.style.display = 'block';
+      document.getElementById('adminApp').style.display = 'block';
       loadApp();
       return;
     } else {
@@ -157,7 +27,6 @@
     }
   }
 
-  // Ask password BEFORE showing page
   const entered = prompt('🔐 Enter Admin Password:');
 
   if (!entered) {
@@ -173,12 +42,9 @@
     return;
   }
 
-  // Save + show page
   localStorage.setItem('adminToken', entered);
-  document.body.style.display = 'block';
+  document.getElementById('adminApp').style.display = 'block';
   loadApp();
 
 })();
 </script>
-</body>
-</html>
