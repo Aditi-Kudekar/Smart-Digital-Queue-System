@@ -1,5 +1,5 @@
 // ============================
-// admin.js — QuickQ Admin (FINAL)
+// admin.js — QuickQ Admin (FIXED FINAL)
 // ============================
 
 const API = '';
@@ -25,30 +25,40 @@ async function adminFetch(path, options = {}) {
   });
 }
 
-// Check admin login
+// ✅ FIXED: returns TRUE/FALSE
 async function checkAdminLogin() {
   let token = getAdminToken();
 
-  if (!token) {
-    const entered = prompt('Enter admin password:');
+  // Already logged in
+  if (token) return true;
 
-    if (!entered) return blockAccess();
+  const entered = prompt('Enter admin password:');
 
-    try {
-      const res = await fetch('/queue', {
-        headers: { 'x-admin-token': entered }
-      });
+  // ❌ Cancel or empty
+  if (!entered) {
+    blockAccess();
+    return false;
+  }
 
-      if (res.status === 401) {
-        alert('❌ Wrong password!');
-        return blockAccess();
-      }
+  try {
+    const res = await fetch('/queue', {
+      headers: { 'x-admin-token': entered }
+    });
 
-      localStorage.setItem('adminToken', entered);
-
-    } catch (err) {
-      return blockAccess();
+    // ❌ Wrong password
+    if (res.status === 401) {
+      alert('❌ Wrong password!');
+      blockAccess();
+      return false;
     }
+
+    // ✅ Correct password
+    localStorage.setItem('adminToken', entered);
+    return true;
+
+  } catch (err) {
+    blockAccess();
+    return false;
   }
 }
 
@@ -87,7 +97,11 @@ function showToast(msg, type = '') {
 async function loadAdminQueue() {
   try {
     const res  = await adminFetch('/queue');
-    if (res.status === 401) return blockAccess();
+
+    if (res.status === 401) {
+      blockAccess();
+      return;
+    }
 
     const data = await res.json();
 
@@ -135,7 +149,11 @@ async function loadAdminQueue() {
 async function loadAnalytics() {
   try {
     const res  = await adminFetch('/analytics');
-    if (res.status === 401) return blockAccess();
+
+    if (res.status === 401) {
+      blockAccess();
+      return;
+    }
 
     const data = await res.json();
 
@@ -161,7 +179,10 @@ async function callNext() {
     const res  = await adminFetch('/queue/next', { method: 'POST' });
     const data = await res.json();
 
-    if (res.status === 401) return blockAccess();
+    if (res.status === 401) {
+      blockAccess();
+      return;
+    }
 
     if (res.ok && data.user) {
       const banner = document.getElementById('nowServing');
@@ -187,7 +208,11 @@ async function clearQueue() {
 
   try {
     const res = await adminFetch('/queue/clear', { method: 'POST' });
-    if (res.status === 401) return blockAccess();
+
+    if (res.status === 401) {
+      blockAccess();
+      return;
+    }
 
     document.getElementById('nowServing').style.display = 'none';
     showToast('🗑 Queue cleared.');
@@ -199,8 +224,7 @@ async function clearQueue() {
 }
 
 // ============================
-// 📷 QR
-// ============================
+
 
 function generateQR() {
   const url = encodeURIComponent(window.location.origin + '/');
@@ -211,7 +235,7 @@ function generateQR() {
 
 // ============================
 // 📊 STATS + AI
-// ============================
+
 
 function updateStats(queue) {
   const totalWait = queue.reduce((sum, u) =>
@@ -234,7 +258,6 @@ function updateAIInsights(queueLen) {
 
 // ============================
 // 📊 CHART
-// ============================
 
 function drawChart(hourly) {
   const canvas = document.getElementById('activityChart');
@@ -246,7 +269,6 @@ function drawChart(hourly) {
 
 // ============================
 // 🔧 HELPERS
-// ============================
 
 function serviceLabel(s) {
   return {
@@ -256,19 +278,23 @@ function serviceLabel(s) {
     emergency: 'Emergency'
   }[s] || s;
 }
-
-// ============================
-// 🚀 INIT
 // ============================
 
 window.addEventListener('load', async () => {
-  await checkAdminLogin();   // 🔐 FIRST
+  const isAllowed = await checkAdminLogin();
+
+  // ❌ STOP if wrong password
+  if (!isAllowed) return;
+
+  // ✅ Only run if correct
   loadAdminQueue();
   loadAnalytics();
 });
 
 // Auto refresh
 setInterval(() => {
-  loadAdminQueue();
-  loadAnalytics();
+  if (getAdminToken()) {
+    loadAdminQueue();
+    loadAnalytics();
+  }
 }, 5000);
