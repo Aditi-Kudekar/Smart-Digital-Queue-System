@@ -10,7 +10,6 @@ const crypto = require('crypto');
 
 const app = express();
 
-// ============================
 // MIDDLEWARE
 // ============================
 app.use(cors({
