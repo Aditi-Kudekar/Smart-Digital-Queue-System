@@ -1,8 +1,10 @@
 // ============================
+// admin.js — FINAL FIXED
+// ============================
 
 const API = '';
 
-// Load app
+// Load app after login
 function loadApp() {
   loadAdminQueue();
 
@@ -43,7 +45,7 @@ async function loadAdminQueue() {
     `).join('');
 
   } catch (err) {
-    console.log(err);
+    console.log("Error loading queue:", err);
   }
 }
 
