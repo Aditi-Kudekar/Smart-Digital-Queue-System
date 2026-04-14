@@ -1,16 +1,76 @@
 // ============================
-// admin.js — QuickQ Admin (FINAL FIXED)
+// admin.js — FINAL STABLE VERSION
 // ============================
 
 const API = '';
 
 // ============================
-// 🔐 AUTH SECTION
+// 🔐 AUTH
 // ============================
 
 function getAdminToken() {
   return localStorage.getItem('adminToken') || '';
 }
+
+// Validate token with backend
+async function validateToken(token) {
+  try {
+    const res = await fetch('/queue', {
+      headers: { 'x-admin-token': token }
+    });
+    return res.status !== 401;
+  } catch {
+    return false;
+  }
+}
+
+// Block page completely
+function blockAccess() {
+  document.body.innerHTML = `
+    <div style="text-align:center; margin-top:120px;">
+      <h1 style="color:red;">🚫 Access Denied</h1>
+      <p>Wrong admin password</p>
+    </div>
+  `;
+}
+
+// MAIN LOGIN FLOW
+async function checkAdminLogin() {
+  let token = getAdminToken();
+
+  // If token exists → verify
+  if (token) {
+    const valid = await validateToken(token);
+    if (valid) return true;
+
+    // remove invalid token
+    localStorage.removeItem('adminToken');
+  }
+
+  // Ask password
+  const entered = prompt('🔐 Enter Admin Password:');
+
+  if (!entered) {
+    blockAccess();
+    return false;
+  }
+
+  const valid = await validateToken(entered);
+
+  if (!valid) {
+    alert('❌ Wrong Password!');
+    blockAccess();
+    return false;
+  }
+
+  // Save correct password
+  localStorage.setItem('adminToken', entered);
+  return true;
+}
+
+// ============================
+// 🔐 FETCH HELPER
+// ============================
 
 async function adminFetch(path, options = {}) {
   return fetch(API + path, {
@@ -23,74 +83,6 @@ async function adminFetch(path, options = {}) {
   });
 }
 
-// ✅ Proper login check (NO UI LOAD BEFORE AUTH)
-async function checkAdminLogin() {
-  let token = getAdminToken();
-
-  // If no token → ask password
-  if (!token) {
-    const entered = prompt('Enter admin password:');
-
-    if (!entered) {
-      blockAccess();
-      return false;
-    }
-
-    try {
-      const res = await fetch('/queue', {
-        headers: { 'x-admin-token': entered }
-      });
-
-      if (res.status === 401) {
-        alert('❌ Wrong password!');
-        blockAccess();
-        return false;
-      }
-
-      localStorage.setItem('adminToken', entered);
-      return true;
-
-    } catch (err) {
-      blockAccess();
-      return false;
-    }
-  }
-
-  // If token exists → verify it
-  try {
-    const res = await fetch('/queue', {
-      headers: { 'x-admin-token': token }
-    });
-
-    if (res.status === 401) {
-      localStorage.removeItem('adminToken');
-      return checkAdminLogin(); // ask again
-    }
-
-    return true;
-
-  } catch (err) {
-    blockAccess();
-    return false;
-  }
-}
-
-// ❌ Block UI completely
-function blockAccess() {
-  document.body.innerHTML = `
-    <div style="text-align:center; margin-top:100px;">
-      <h1 style="color:red;">🚫 Access Denied</h1>
-      <p>You are not authorized to view this page.</p>
-    </div>
-  `;
-}
-
-// Logout
-function logout() {
-  localStorage.removeItem('adminToken');
-  location.reload();
-}
-
 // ============================
 // 🔔 UI HELPERS
 // ============================
@@ -100,58 +92,49 @@ function showToast(msg, type = '') {
   if (!t) return;
   t.textContent = msg;
   t.className = `toast show ${type}`;
-  setTimeout(() => { t.className = 'toast'; }, 3500);
+  setTimeout(() => { t.className = 'toast'; }, 3000);
 }
 
 // ============================
-// 📊 QUEUE FUNCTIONS
+// 📊 QUEUE
 // ============================
 
 async function loadAdminQueue() {
-  try {
-    const res = await adminFetch('/queue');
+  const res = await adminFetch('/queue');
 
-    if (res.status === 401) return blockAccess();
+  if (res.status === 401) return blockAccess();
 
-    const data = await res.json();
+  const data = await res.json();
+  const list = document.getElementById('adminQueueList');
 
-    const list = document.getElementById('adminQueueList');
-
-    if (!data.queue || data.queue.length === 0) {
-      document.getElementById('statTotal').textContent = 0;
-      list.innerHTML = '<div class="empty-state">✅ Queue is clear!</div>';
-      document.getElementById('nowServing').style.display = 'none';
-      updateAIInsights(0);
-      return;
-    }
-
-    document.getElementById('statTotal').textContent = data.queue.length;
-
-    list.innerHTML = data.queue.map((user, i) => {
-      const isPriority = user.service === 'emergency';
-      const joinedAt = new Date(user.joinedAt);
-      const waitMins = Math.floor((Date.now() - joinedAt) / 60000);
-
-      return `
-        <div class="admin-queue-item ${isPriority ? 'priority-item' : ''}">
-          <div class="aqi-pos">${i + 1}</div>
-          <div>
-            <div class="aqi-name">${user.name}</div>
-            <div class="aqi-meta">📱 ${user.phone} · Waited ${waitMins}m</div>
-          </div>
-          <span class="aqi-badge badge-${user.service}">
-            ${serviceLabel(user.service)}
-          </span>
-        </div>
-      `;
-    }).join('');
-
-    updateStats(data.queue);
-    updateAIInsights(data.queue.length);
-
-  } catch (err) {
-    showToast('❌ Error loading queue', 'error');
+  if (!data.queue || data.queue.length === 0) {
+    document.getElementById('statTotal').textContent = 0;
+    list.innerHTML = '<div class="empty-state">✅ Queue is clear!</div>';
+    document.getElementById('nowServing').style.display = 'none';
+    updateAIInsights(0);
+    return;
   }
+
+  document.getElementById('statTotal').textContent = data.queue.length;
+
+  list.innerHTML = data.queue.map((user, i) => {
+    const joinedAt = new Date(user.joinedAt);
+    const waitMins = Math.floor((Date.now() - joinedAt) / 60000);
+
+    return `
+      <div class="admin-queue-item">
+        <div class="aqi-pos">${i + 1}</div>
+        <div>
+          <div class="aqi-name">${user.name}</div>
+          <div class="aqi-meta">📱 ${user.phone} · Waited ${waitMins}m</div>
+        </div>
+        <span class="aqi-badge">${serviceLabel(user.service)}</span>
+      </div>
+    `;
+  }).join('');
+
+  updateStats(data.queue);
+  updateAIInsights(data.queue.length);
 }
 
 // ============================
@@ -159,24 +142,21 @@ async function loadAdminQueue() {
 // ============================
 
 async function loadAnalytics() {
-  try {
-    const res = await adminFetch('/analytics');
+  const res = await adminFetch('/analytics');
 
-    if (res.status === 401) return blockAccess();
+  if (res.status === 401) return blockAccess();
 
-    const data = await res.json();
+  const data = await res.json();
 
-    document.getElementById('statServed').textContent = data.todayCount ?? 0;
+  document.getElementById('statServed').textContent = data.todayCount ?? 0;
 
-    if (data.avgServiceMins != null) {
-      window._realAvgMins = data.avgServiceMins;
-    }
+  if (data.avgServiceMins != null) {
+    window._realAvgMins = data.avgServiceMins;
+  }
 
-    if (data.hourly) {
-      drawChart(data.hourly);
-    }
-
-  } catch (err) {}
+  if (data.hourly) {
+    drawChart(data.hourly);
+  }
 }
 
 // ============================
@@ -184,52 +164,41 @@ async function loadAnalytics() {
 // ============================
 
 async function callNext() {
-  try {
-    const res = await adminFetch('/queue/next', { method: 'POST' });
-    const data = await res.json();
+  const res = await adminFetch('/queue/next', { method: 'POST' });
 
-    if (res.status === 401) return blockAccess();
+  if (res.status === 401) return blockAccess();
 
-    if (res.ok && data.user) {
-      const banner = document.getElementById('nowServing');
-      banner.style.display = 'block';
+  const data = await res.json();
 
-      document.getElementById('nsName').textContent = data.user.name;
-      document.getElementById('nsToken').textContent =
-        `Token #${data.user.token} · ${serviceLabel(data.user.service)}`;
+  if (data.user) {
+    document.getElementById('nowServing').style.display = 'block';
+    document.getElementById('nsName').textContent = data.user.name;
+    document.getElementById('nsToken').textContent =
+      `Token #${data.user.token} · ${serviceLabel(data.user.service)}`;
 
-      showToast(`📢 Calling: ${data.user.name}`, 'success');
+    showToast(`📢 Calling: ${data.user.name}`, 'success');
 
-      setTimeout(() => {
-        loadAdminQueue();
-        loadAnalytics();
-      }, 400);
+    setTimeout(() => {
+      loadAdminQueue();
+      loadAnalytics();
+    }, 400);
 
-    } else {
-      showToast('Queue is empty!', 'error');
-    }
-
-  } catch (err) {
-    showToast('❌ Server not reachable.', 'error');
+  } else {
+    showToast('Queue is empty!', 'error');
   }
 }
 
 async function clearQueue() {
   if (!confirm('Clear the entire queue?')) return;
 
-  try {
-    const res = await adminFetch('/queue/clear', { method: 'POST' });
+  const res = await adminFetch('/queue/clear', { method: 'POST' });
 
-    if (res.status === 401) return blockAccess();
+  if (res.status === 401) return blockAccess();
 
-    document.getElementById('nowServing').style.display = 'none';
-    showToast('🗑 Queue cleared.');
+  document.getElementById('nowServing').style.display = 'none';
+  showToast('🗑 Queue cleared.');
 
-    loadAdminQueue();
-
-  } catch (err) {
-    showToast('❌ Server error', 'error');
-  }
+  loadAdminQueue();
 }
 
 // ============================
@@ -253,7 +222,6 @@ function updateStats(queue) {
     sum + Math.floor((Date.now() - new Date(u.joinedAt)) / 60000), 0);
 
   const avg = queue.length ? Math.floor(totalWait / queue.length) : 0;
-
   document.getElementById('statAvg').textContent = `${avg}m`;
 }
 
@@ -261,11 +229,9 @@ function updateAIInsights(queueLen) {
   const container = document.getElementById('aiInsights');
   if (!container) return;
 
-  let msg = queueLen === 0
-    ? '✅ No users in queue'
-    : `📊 ${queueLen} users waiting`;
-
-  container.innerHTML = `<div class="ai-item">${msg}</div>`;
+  container.innerHTML = `<div class="ai-item">
+    ${queueLen === 0 ? '✅ No users in queue' : `📊 ${queueLen} users waiting`}
+  </div>`;
 }
 
 // ============================
@@ -294,19 +260,19 @@ function serviceLabel(s) {
 }
 
 // ============================
-// 🚀 INIT (CRITICAL FIX)
+// 🚀 INIT (FINAL FIX)
 // ============================
 
 window.addEventListener('load', async () => {
 
-  // Hide UI first
+  // 🔥 Hide UI completely before auth
   document.body.style.display = 'none';
 
   const ok = await checkAdminLogin();
 
-  if (!ok) return; // STOP if not authorized
+  if (!ok) return;
 
-  // Show UI only after success
+  // ✅ Show UI only after correct login
   document.body.style.display = 'block';
 
   loadAdminQueue();
