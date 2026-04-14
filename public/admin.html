@@ -16,9 +16,11 @@
 
   let token = localStorage.getItem('adminToken');
 
+  // Auto login if already saved
   if (token) {
     const ok = await validate(token);
     if (ok) {
+      document.body.style.display = 'block';
       document.getElementById('adminApp').style.display = 'block';
       loadApp();
       return;
@@ -27,6 +29,7 @@
     }
   }
 
+  // Ask password
   const entered = prompt('🔐 Enter Admin Password:');
 
   if (!entered) {
@@ -42,7 +45,9 @@
     return;
   }
 
+  // Save and show
   localStorage.setItem('adminToken', entered);
+  document.body.style.display = 'block';
   document.getElementById('adminApp').style.display = 'block';
   loadApp();
 
