@@ -22,14 +22,30 @@ async function adminFetch(path, options = {}) {
 }
 
 // ---- Simple Admin Login ----
-function checkAdminLogin() {
-  const token = localStorage.getItem('adminToken');
+async function checkAdminLogin() {
+  let token = localStorage.getItem('adminToken');
+
   if (!token) {
     const entered = prompt('Enter admin password:');
     if (!entered) {
-      document.body.innerHTML = '<div style="text-align:center;padding:60px;color:#ef4444">Access denied. Reload to try again.</div>';
+      document.body.innerHTML = '<h2 style="text-align:center;color:red;">Access Denied</h2>';
       return;
     }
+
+    // Test password with backend
+    const res = await fetch('/queue', {
+      headers: {
+        'x-admin-token': entered
+      }
+    });
+
+    if (res.status === 401) {
+      alert('❌ Wrong password!');
+      document.body.innerHTML = '<h2 style="text-align:center;color:red;">Access Denied</h2>';
+      return;
+    }
+
+    // Save only if correct
     localStorage.setItem('adminToken', entered);
   }
 }
