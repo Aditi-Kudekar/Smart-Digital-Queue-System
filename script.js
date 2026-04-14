@@ -2,7 +2,7 @@
 // script.js — QuickQ Frontend
 // ============================
 
-const API = 'http://localhost:3000';
+const API = '';  // Relative URLs — works on localhost AND after deployment
 
 // ---- Toast Notification ----
 function showToast(msg, type = '') {
@@ -14,27 +14,26 @@ function showToast(msg, type = '') {
 
 // ---- AI Waiting Time Prediction ----
 function predictWait(position, avgTime = 5) {
-  // Simple linear regression model: wait = position × avgServiceMinutes
   const base = position * avgTime;
-  const variation = Math.floor(Math.random() * 3) - 1; // ±1 min variation
+  const variation = Math.floor(Math.random() * 3) - 1;
   return Math.max(1, base + variation);
 }
 
 // ---- AI Message Generator ----
 function getAIInsight(position, waitMins) {
-  const hour = new Date().getHours();
+  const hour   = new Date().getHours();
   const isPeak = (hour >= 10 && hour <= 12) || (hour >= 17 && hour <= 19);
 
   if (position === 1) return "🎉 You're next! Please approach the counter.";
-  if (position <= 3) return `⚡ Almost your turn! Be ready in ~${waitMins} mins.`;
-  if (isPeak) return `📊 Peak hours now. Expect slight delays. Est. ${waitMins} mins.`;
+  if (position <= 3)  return `⚡ Almost your turn! Be ready in ~${waitMins} mins.`;
+  if (isPeak)         return `📊 Peak hours now. Expect slight delays. Est. ${waitMins} mins.`;
   return `🤖 Based on current speed, your wait is ~${waitMins} mins.`;
 }
 
 // ---- Join Queue ----
 async function joinQueue() {
-  const name = document.getElementById('userName').value.trim();
-  const phone = document.getElementById('userPhone').value.trim();
+  const name    = document.getElementById('userName').value.trim();
+  const phone   = document.getElementById('userPhone').value.trim();
   const service = document.getElementById('serviceType').value;
 
   if (!name || !phone) {
@@ -49,13 +48,13 @@ async function joinQueue() {
 
   const btn = document.querySelector('.btn-primary');
   btn.innerHTML = '<span>Joining...</span>';
-  btn.disabled = true;
+  btn.disabled  = true;
 
   try {
-    const res = await fetch(`${API}/queue/join`, {
-      method: 'POST',
+    const res  = await fetch(`${API}/queue/join`, {
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, service })
+      body:    JSON.stringify({ name, phone, service }),
     });
 
     const data = await res.json();
@@ -74,7 +73,7 @@ async function joinQueue() {
   }
 
   btn.innerHTML = '<span>Join Queue Now</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
-  btn.disabled = false;
+  btn.disabled  = false;
 }
 
 // ---- Show Status Card ----
@@ -83,11 +82,11 @@ function showStatusCard(data) {
   card.style.display = 'flex';
 
   document.getElementById('positionNumber').textContent = data.position;
-  document.getElementById('totalQueue').textContent = data.total;
-  document.getElementById('tokenNum').textContent = `#${data.token}`;
+  document.getElementById('totalQueue').textContent     = data.total;
+  document.getElementById('tokenNum').textContent       = `#${data.token}`;
 
   const wait = predictWait(data.position);
-  document.getElementById('waitTime').textContent = `${wait}m`;
+  document.getElementById('waitTime').textContent  = `${wait}m`;
   document.getElementById('aiMessage').textContent = getAIInsight(data.position, wait);
 }
 
@@ -98,9 +97,9 @@ async function leaveQueue() {
 
   try {
     await fetch(`${API}/queue/leave`, {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
+      body:    JSON.stringify({ token }),
     });
   } catch (_) {}
 
@@ -115,8 +114,8 @@ async function leaveQueue() {
 async function loadQueueBoard() {
   const board = document.getElementById('queueBoard');
   try {
-    const res = await fetch(`${API}/queue`);
-    const data = await res.json();
+    const res     = await fetch(`${API}/queue`);
+    const data    = await res.json();
     const myToken = localStorage.getItem('queueToken');
 
     if (!data.queue || data.queue.length === 0) {
@@ -125,7 +124,7 @@ async function loadQueueBoard() {
     }
 
     board.innerHTML = data.queue.map((user, i) => {
-      const isMe = user.token === myToken;
+      const isMe       = user.token === myToken;
       const isPriority = user.service === 'emergency';
       let cls = isMe ? 'current' : '';
       if (isPriority) cls = 'priority';
@@ -150,7 +149,12 @@ function maskName(name) {
 }
 
 function serviceLabel(s) {
-  const map = { general: '⚪ General', consultation: '🔵 Consult', billing: '🟣 Billing', emergency: '🔴 Emergency' };
+  const map = {
+    general:      '⚪ General',
+    consultation: '🔵 Consult',
+    billing:      '🟣 Billing',
+    emergency:    '🔴 Emergency',
+  };
   return map[s] || s;
 }
 
@@ -158,7 +162,6 @@ function serviceLabel(s) {
 window.addEventListener('load', () => {
   loadQueueBoard();
 
-  // Restore status card if rejoining
   const token = localStorage.getItem('queueToken');
   if (token) {
     fetch(`${API}/queue/status/${token}`)
@@ -176,8 +179,9 @@ setInterval(async () => {
   if (!token) return;
 
   try {
-    const res = await fetch(`${API}/queue/status/${token}`);
+    const res  = await fetch(`${API}/queue/status/${token}`);
     const data = await res.json();
+
     if (data && data.position) {
       showStatusCard(data);
       if (data.position === 1) {
@@ -186,7 +190,6 @@ setInterval(async () => {
         showToast(`⏰ Only ${data.position - 1} person(s) ahead of you!`, '');
       }
     } else {
-      // Removed from queue
       if (document.getElementById('statusCard').style.display !== 'none') {
         localStorage.removeItem('queueToken');
         document.getElementById('statusCard').style.display = 'none';
